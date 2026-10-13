@@ -1,0 +1,280 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Strength Checker</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #111827, #1e3a5f);
+            color: #f9fafb;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            padding: 32px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 18px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 27px;
+        }
+
+        .subtitle {
+            margin-bottom: 28px;
+            text-align: center;
+            color: #9ca3af;
+            line-height: 1.5;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        input {
+            width: 100%;
+            min-width: 0;
+            padding: 13px;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            background: #111827;
+            color: white;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: 2px solid #60a5fa;
+            border-color: transparent;
+        }
+
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .toggle {
+            background: #374151;
+            color: white;
+        }
+
+        .check {
+            width: 100%;
+            margin-top: 16px;
+            background: #3b82f6;
+            color: white;
+            font-size: 16px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .result {
+            margin-top: 24px;
+            padding: 18px;
+            background: #111827;
+            border-radius: 10px;
+        }
+
+        .result h2 {
+            margin-top: 0;
+            font-size: 18px;
+        }
+
+        #strength {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .meter {
+            height: 8px;
+            margin: 12px 0;
+            overflow: hidden;
+            border-radius: 10px;
+            background: #374151;
+        }
+
+        #meter-fill {
+            width: 0;
+            height: 100%;
+            transition: width 0.25s;
+            background: #ef4444;
+        }
+
+        #feedback {
+            padding-left: 20px;
+            color: #d1d5db;
+            line-height: 1.8;
+        }
+
+        .note {
+            margin-top: 20px;
+            color: #9ca3af;
+            font-size: 12px;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        #error {
+            color: #fca5a5;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <h1>Password Checker</h1>
+
+        <p class="subtitle">
+            Check your password against five basic security rules.
+        </p>
+
+        <form id="password-form">
+            <label for="password">Enter a password</label>
+
+            <div class="input-row">
+                <input
+                    type="password"
+                    id="password"
+                    placeholder="Enter a test password"
+                    maxlength="1024"
+                    autocomplete="off"
+                    required
+                >
+
+                <button
+                    type="button"
+                    class="toggle"
+                    id="toggle-password"
+                >
+                    Show
+                </button>
+            </div>
+
+            <button type="submit" class="check">
+                Check Password
+            </button>
+        </form>
+
+        <section class="result" aria-live="polite">
+            <h2>Password strength</h2>
+
+            <div id="strength">Not checked</div>
+
+            <div class="meter">
+                <div id="meter-fill"></div>
+            </div>
+
+            <p id="score">Score: — / 5</p>
+
+            <ul id="feedback">
+                <li>Your results will appear here.</li>
+            </ul>
+
+            <p id="error" role="alert"></p>
+        </section>
+
+        <p class="note">
+            Educational tool only. Do not enter your real password.
+            This checker does not guarantee password security.
+        </p>
+    </main>
+
+    <script>
+        const form = document.getElementById("password-form");
+        const passwordInput = document.getElementById("password");
+        const toggleButton = document.getElementById("toggle-password");
+        const strengthElement = document.getElementById("strength");
+        const meterFill = document.getElementById("meter-fill");
+        const scoreElement = document.getElementById("score");
+        const feedbackElement = document.getElementById("feedback");
+        const errorElement = document.getElementById("error");
+
+        toggleButton.addEventListener("click", () => {
+            const isHidden = passwordInput.type === "password";
+
+            passwordInput.type = isHidden ? "text" : "password";
+            toggleButton.textContent = isHidden ? "Hide" : "Show";
+        });
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const password = passwordInput.value;
+            errorElement.textContent = "";
+
+            try {
+                const response = await fetch("/check-password", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Unable to check password.");
+                }
+
+                strengthElement.textContent = data.strength;
+                scoreElement.textContent = `Score: ${data.score} / 5`;
+                meterFill.style.width = `${data.score * 20}%`;
+
+                const strengthColors = {
+                    Weak: "#ef4444",
+                    Medium: "#f59e0b",
+                    Strong: "#22c55e"
+                };
+
+                meterFill.style.background =
+                    strengthColors[data.strength] || "#6b7280";
+
+                strengthElement.style.color =
+                    strengthColors[data.strength] || "#f9fafb";
+
+                feedbackElement.replaceChildren();
+
+                data.feedback.forEach((message) => {
+                    const item = document.createElement("li");
+                    item.textContent = message;
+                    feedbackElement.appendChild(item);
+                });
+            } catch (error) {
+                errorElement.textContent =
+                    error.message || "Could not connect to the server.";
+            }
+        });
+    </script>
+</body>
+</html>
